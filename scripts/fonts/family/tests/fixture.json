@@ -2,6 +2,7 @@
   "family": "Fixture Type",
   "notice": "Modifications copyright 2026 Manaflow, Inc. (Fixture Type, a test build only).",
   "x_height": 520,
+  "line_box": {"ascender": 960, "descender": -240},
   "faces": [
     {"name": "Sans", "role": "sans", "base": "Figtree",
      "source": {"path": "webviews/src/gallery/fontStudy/fonts/figtree.woff2"},

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Checks a built family (build.py's output directory): at most `--max-faces` faces, every face on one line
-box, no ink past it, every name renamed. A face whose box differs would move lines when a reader swaps faces,
+box (hhea and typo, USE_TYPO_METRICS), win metrics that cover the box and the ink, every name renamed. A face whose box differs would move lines when a reader swaps faces,
 so this is the 0 px line-shift check on the files themselves; the gallery's no-shift entry measures the same
 in a browser.
 
@@ -34,7 +34,6 @@ def check(out: Path, max_faces: int) -> list[str]:
     want = {
         "hhea": (ascender, descender, 0),
         "typo": (ascender, descender, 0),
-        "win": (ascender, descender),
         "use_typo": True,
         "upem": 1000,
     }
@@ -48,8 +47,9 @@ def check(out: Path, max_faces: int) -> list[str]:
             if got[key] != value:
                 problems.append(f"{face['file']}: {key} is {got[key]}, the family's is {value}")
         head = font["head"]
-        if head.yMax > ascender or head.yMin < descender:
-            problems.append(f"{face['file']}: ink {head.yMin}..{head.yMax} leaves the box {descender}..{ascender}")
+        win_ascent, win_descent = got["win"]
+        if win_ascent < max(ascender, head.yMax) or win_descent > min(descender, head.yMin):
+            problems.append(f"{face['file']}: win {got['win']} does not cover the box and the ink {head.yMin}..{head.yMax}")
         family = font["name"].getDebugName(16) or font["name"].getDebugName(1)
         if not family or not family.startswith(manifest["family"]):
             problems.append(f"{face['file']}: family name {family!r} is not {manifest['family']!r}")

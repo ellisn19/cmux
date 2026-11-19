@@ -19,8 +19,9 @@ script knows no font by name. For each face of the spec it:
    family's;
 4. cuts it to Fontsource's Latin range (plus `extra_codepoints`), keeping fontTools' default features;
 5. applies the family's signature axis, if the spec names one (`signature.py`);
-6. sets the family's line box on it: hhea, OS/2 typo (with USE_TYPO_METRICS) and OS/2 win ascent and
-   descent, all equal across faces, line gap 0;
+6. sets the family's line box on it: hhea and OS/2 typo (with USE_TYPO_METRICS), equal across faces, line
+   gap 0, and the same at every axis location; OS/2 win ascent and descent cover the box and the face's ink
+   (Windows clips there, and with USE_TYPO_METRICS no renderer takes them for the line box);
 7. renames it (the OFL reserves names a base declares; `reserved` lists them and the build fails if one
    survives) and puts our modification notice after the base's copyright;
 8. writes `<File>.woff2` (and `.ttf` with --ttf), then `manifest.json` (bytes, sha256, metrics) and
@@ -149,16 +150,17 @@ def set_line_box(font: TTFont, box: LineBox) -> None:
     hhea, os2 = font["hhea"], font["OS/2"]
     hhea.ascent, hhea.descent, hhea.lineGap = box.ascender, box.descender, 0
     os2.sTypoAscender, os2.sTypoDescender, os2.sTypoLineGap = box.ascender, box.descender, 0
-    # Windows clips outside win ascent/descent, and Chromium on Windows takes them for the line box when
-    # USE_TYPO_METRICS is off; equal values everywhere leave no renderer a different box to pick.
-    os2.usWinAscent, os2.usWinDescent = box.ascender, -box.descender
+    # Windows clips outside win ascent/descent; they cover the box and every glyph's ink.
+    low, high = ink_bounds(font)
+    os2.usWinAscent, os2.usWinDescent = max(box.ascender, high), max(-box.descender, -low)
     if os2.version < 4:
         os2.version = 4
     os2.fsSelection |= USE_TYPO_METRICS
     if "MVAR" in font:
         # Variable metrics would move the box along an axis; the box is the family's at every location.
         mvar = font["MVAR"].table
-        keep = [r for r in mvar.ValueRecord if r.ValueTag not in {"hasc", "hdsc", "hlgp", "hcla", "hcld"}]
+        moving = {"hasc", "hdsc", "hlgp", "tasc", "tdsc", "tlgp", "hcla", "hcld"}
+        keep = [r for r in mvar.ValueRecord if r.ValueTag not in moving]
         mvar.ValueRecord = keep
         mvar.ValueRecordCount = len(keep)
         if not keep:
@@ -166,9 +168,17 @@ def set_line_box(font: TTFont, box: LineBox) -> None:
 
 
 def ink_bounds(font: TTFont) -> tuple[int, int]:
-    """Lowest and highest ink of the cut font (after subsetting), for the line box's check."""
-    head = font["head"]
-    return head.yMin, head.yMax
+    """Lowest and highest ink of the cut font at its default location, from the glyphs themselves (head's
+    bounds are stale until the font is saved)."""
+    glyf = font["glyf"]
+    lows, highs = [0], [0]
+    for name in font.getGlyphOrder():
+        glyph = glyf[name]
+        glyph.recalcBounds(glyf)
+        if glyph.numberOfContours:
+            lows.append(glyph.yMin)
+            highs.append(glyph.yMax)
+    return min(lows), max(highs)
 
 
 def rename(font: TTFont, family: str, face: dict, notice: str, reserved: list[str]) -> str:

@@ -63,6 +63,21 @@ class FamilyBuildTests(unittest.TestCase):
         finally:
             shutil.rmtree(broken)
 
+    def test_family_box_is_quillets(self) -> None:
+        # The same 1.2 em box as Quillet (960 / -240), so swapping between the two families moves no line.
+        self.assertEqual(self.manifest["line_box"], [960, -240])
+
+    def test_box_from_ink_when_the_spec_names_none(self) -> None:
+        spec = json.loads((HERE / "fixture.json").read_text())
+        del spec["line_box"]
+        spec_path = self.out / "auto.json"
+        spec_path.write_text(json.dumps(spec))
+        manifest = build.build(spec_path, self.out / "auto", ttf=False)
+        ascender, descender = manifest["line_box"]
+        self.assertGreater(ascender, 900)
+        self.assertLess(descender, -200)
+        self.assertEqual(check.check(self.out / "auto", 8), [])
+
     def test_face_limit(self) -> None:
         spec = json.loads((HERE / "fixture.json").read_text())
         spec["faces"] = spec["faces"] * 3

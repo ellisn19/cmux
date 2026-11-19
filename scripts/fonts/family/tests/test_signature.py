@@ -106,3 +106,43 @@ class SignatureTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WeftTests(unittest.TestCase):
+    """The Selvedge axis (`WEFT`): the fixture family with the real kind."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        spec = json.loads((HERE / "fixture.json").read_text())
+        spec["signature"] = {"kind": "weft", "tag": "WEFT", "name": "Selvedge", "max": 100}
+        cls.dir = Path(tempfile.mkdtemp(prefix="cmux-weft-"))
+        (cls.dir / "spec.json").write_text(json.dumps(spec))
+        cls.manifest = build.build(cls.dir / "spec.json", cls.dir / "out", ttf=False)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        shutil.rmtree(cls.dir)
+
+    def test_threads_grow_and_nothing_reflows(self) -> None:
+        from fontTools.pens.boundsPen import BoundsPen as Bounds
+
+        for face in self.manifest["faces"]:
+            font = TTFont(self.dir / "out" / face["file"])
+            self.assertIn("WEFT", [a.axisTag for a in font["fvar"].axes])
+            cmap = font.getBestCmap()
+            for char in "nhl":
+                name = cmap[ord(char)]
+                cut, weft = font.getGlyphSet(location={"WEFT": 0}), font.getGlyphSet(location={"WEFT": 100})
+                self.assertEqual(cut[name].width, weft[name].width, f"{face['file']} {char}")
+                b0, b1 = Bounds(cut), Bounds(weft)
+                cut[name].draw(b0)
+                weft[name].draw(b1)
+                advance = cut[name].width
+                # At 0 the thread has no area and sits on the stem foot: the glyph keeps its own bounds. At 100 it
+                # reaches past the advance, toward the next letter, from the baseline up.
+                self.assertLess(b0.bounds[2], advance + 5, f"{face['file']} {char}")
+                self.assertGreaterEqual(b1.bounds[2], advance + 25, f"{face['file']} {char}")
+                self.assertGreaterEqual(b1.bounds[1], b0.bounds[1] - 1, f"{face['file']} {char}")
+
+    def test_box_holds(self) -> None:
+        self.assertEqual(check.check(self.dir / "out", 8), [])

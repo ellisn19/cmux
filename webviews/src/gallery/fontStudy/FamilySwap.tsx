@@ -16,6 +16,8 @@ export interface SwapFamily {
   serif: FaceKey | string;
   display: FaceKey | string;
   mono: FaceKey | string;
+  /** `font-variation-settings` for the whole sheet: the Selvedge axis, `"WEFT" 100`. */
+  variation?: string;
 }
 
 export interface FamilySwapProps {
@@ -105,7 +107,11 @@ export function FamilySwap({ families, size = 15, lineHeight = "normal" }: Famil
           Rows moved {shift.max.toFixed(2)} px since {families[0].label}
         </span>
       </div>
-      <div ref={sheet} className="family-swap-sheet" style={{ fontFamily: sans, fontSize: size, lineHeight }}>
+      <div
+        ref={sheet}
+        className="family-swap-sheet"
+        style={{ fontFamily: sans, fontSize: size, lineHeight, fontVariationSettings: family.variation }}
+      >
         {rows.map(([id, content, style], i) => (
           <Fragment key={id}>
             <div className="family-swap-row" data-swap-row={id} style={style}>

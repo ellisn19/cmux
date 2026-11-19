@@ -1,9 +1,11 @@
 // l10n-allow-file: type specimens and labels, gallery only, not shipped UI.
-// The family swap: Quillet, cmux Type and the system font drawing the same transcript lines, one family
-// at a time, swapped by a press. The stage's anchor check fails if any line moves or resizes on a swap
-// (play.ts, strict by default), so a passing variant is the 0 px line-shift proof in a browser, beside
-// scripts/fonts/family/check.py's on the files. Leo, 2026-11-19: "quillet is our anthropic inspired one.
-// we do want our own separate one!"; cmux Type shares Quillet's line box (960 / -240 of 1000) by design.
+// The family swap: Quillet, the cmux family (cmux Sans, cmux Serif and cmux Mono) and the system font
+// drawing the same transcript lines, one family at a time, swapped by a press. The stage's anchor check
+// fails if any line moves or resizes on a swap (play.ts, strict by default), so a passing variant is the
+// 0 px line-shift proof in a browser, beside scripts/fonts/family/check.py's on the files. Leo, 2026-11-19:
+// "quillet is our anthropic inspired one. we do want our own separate one!" and "cmux sans/manaflow sans".
+// The cmux family shares Quillet's line box (960 / -240 of 1000) by design, and its Selvedge axis (`WEFT`,
+// threaded exit strokes) changes no advance and no metric, so moving it moves no row either.
 import { componentEntry } from "../format";
 import type { Play } from "../play";
 import type { FamilySwapProps, SwapFamily } from "./FamilySwap";
@@ -23,13 +25,18 @@ const QUILLET: SwapFamily = {
   display: "quilletSerif",
   mono: "quilletMono",
 };
-const CMUX_TYPE: SwapFamily = {
-  label: "cmux Type",
-  sans: "cmuxTypeSans",
-  serif: "cmuxTypeSerif",
-  display: "cmuxTypeDisplay",
-  mono: "cmuxTypeMono",
+const CMUX: SwapFamily = {
+  label: "cmux Sans, Serif, Mono",
+  sans: "cmuxFamilySans",
+  serif: "cmuxFamilySerif",
+  display: "cmuxFamilyDisplay",
+  mono: "cmuxFamilyMono",
 };
+const selvedge = (weft: number): SwapFamily => ({
+  ...CMUX,
+  label: `cmux, Selvedge ${weft}`,
+  variation: `"WEFT" ${weft}`,
+});
 
 const ROWS = ["reply", "title", "mixed", "code", "display", "after"];
 
@@ -56,28 +63,32 @@ const variant = (note: string, props: FamilySwapProps) => ({ note, props, play: 
 
 export default componentEntry<FamilySwapProps>({
   id: "font-study.family-swap",
-  title: "Family swap: Quillet, cmux Type and the system font on one line box",
+  title: "Family swap: Quillet, the cmux family and the system font on one line box",
   area: "Agent pane",
   height: 420,
   widths: { narrow: 720, normal: 960, wide: 1200 },
   covers: ["gallery/fontStudy/FamilySwap.tsx#FamilySwap"],
-  keywords: ["font", "typeface", "quillet", "cmux type", "line box", "layout shift", "swap"],
+  keywords: ["font", "typeface", "quillet", "cmux sans", "cmux serif", "cmux mono", "selvedge", "line box", "swap"],
   anchors: ROWS.map((row) => ({ selector: `[data-swap-row="${row}"]` })),
   load: async () => (await import("./FamilySwap")).FamilySwap,
   variants: {
-    "quillet-to-cmux-type": variant(
-      "Quillet, then cmux Type, at 15 px with line-height normal: every row keeps its place.",
-      { families: [QUILLET, CMUX_TYPE, QUILLET] },
+    "quillet-to-cmux": variant(
+      "Quillet, then the cmux family, then Quillet, at 15 px with line-height normal: every row keeps its place.",
+      { families: [QUILLET, CMUX, QUILLET] },
     ),
-    "quillet-to-cmux-type-13": variant("The same at 13 px.", { families: [QUILLET, CMUX_TYPE, QUILLET], size: 13 }),
-    "quillet-to-cmux-type-17": variant("The same at 17 px.", { families: [QUILLET, CMUX_TYPE, QUILLET], size: 17 }),
-    "chat-line-height": variant("Quillet, then cmux Type, at the chat's 15 px on 1.4.", {
-      families: [QUILLET, CMUX_TYPE],
+    "quillet-to-cmux-13": variant("The same at 13 px.", { families: [QUILLET, CMUX, QUILLET], size: 13 }),
+    "quillet-to-cmux-17": variant("The same at 17 px.", { families: [QUILLET, CMUX, QUILLET], size: 17 }),
+    "chat-line-height": variant("Quillet, then the cmux family, at the chat's 15 px on 1.4.", {
+      families: [QUILLET, CMUX],
       lineHeight: 1.4,
     }),
     "system-chat-line-height": variant(
-      "The system font, Quillet, cmux Type at the chat's 15 px on 1.4: a set line height holds every row.",
-      { families: [SYSTEM, QUILLET, CMUX_TYPE], lineHeight: 1.4 },
+      "The system font, Quillet and the cmux family at the chat's 15 px on 1.4: a set line height holds every row.",
+      { families: [SYSTEM, QUILLET, CMUX], lineHeight: 1.4 },
+    ),
+    selvedge: variant(
+      "The Selvedge axis from 0 to 50 to 100 and back: threads grow from the stem feet, and no row moves.",
+      { families: [selvedge(0), selvedge(50), selvedge(100), selvedge(0)], size: 17 },
     ),
   },
 });

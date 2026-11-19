@@ -30,10 +30,10 @@ import quilletSerif from "./fonts/quillet-serif.woff2";
 import recursive from "./fonts/recursive.woff2";
 import schibsted from "./fonts/schibsted-grotesk.woff2";
 import sourceSerif from "./fonts/source-serif-4.woff2";
-import cmuxTypeDisplay from "./fonts/cmux-type-display.woff2";
-import cmuxTypeMono from "./fonts/cmux-type-mono.woff2";
-import cmuxTypeSans from "./fonts/cmux-type-sans.woff2";
-import cmuxTypeSerif from "./fonts/cmux-type-serif.woff2";
+import cmuxFamilyDisplay from "./fonts/cmux-family-serif-display.woff2";
+import cmuxFamilyMono from "./fonts/cmux-family-mono.woff2";
+import cmuxFamilySans from "./fonts/cmux-family-sans.woff2";
+import cmuxFamilySerif from "./fonts/cmux-family-serif.woff2";
 import cmuxSansB from "./fonts/cmux-sans-b.woff2";
 import cmuxSansC from "./fonts/cmux-sans-c.woff2";
 import cmuxSansCG from "./fonts/cmux-sans-c-g.woff2";
@@ -90,13 +90,18 @@ export const FACES = {
   quilletMono: { family: "Study Quillet Mono", files: [{ url: quilletMono, weight: "100 800" }] },
   quilletSans: variable("Study Quillet Sans", quilletSans),
   quilletSerif: { family: "Study Quillet Serif", files: [{ url: quilletSerif, weight: "200 800" }] },
-  // cmux Type (fonts/OFL-cmuxType.txt): our second family, built by scripts/fonts/family/build.py on
-  // Quillet's line box. Provisional stand-in bases (Figtree, Literata, Fraunces, Geist Mono) until the
-  // type-family research picks them; the swap entry (FamilySwap.gallery.ts) proves the box either way.
-  cmuxTypeDisplay: { family: "Study cmux Type Display", files: [{ url: cmuxTypeDisplay, weight: "300 700" }] },
-  cmuxTypeMono: { family: "Study cmux Type Mono", files: [{ url: cmuxTypeMono, weight: "300 700" }] },
-  cmuxTypeSans: { family: "Study cmux Type Sans", files: [{ url: cmuxTypeSans, weight: "300 800" }] },
-  cmuxTypeSerif: { family: "Study cmux Type Serif", files: [{ url: cmuxTypeSerif, weight: "300 700" }] },
+  // The cmux family (fonts/OFL-cmux-family.txt): cmux Sans, cmux Serif (Text and Display) and cmux Mono,
+  // Modified Versions of Source Sans 3, Source Serif 4 and Source Code Pro, built by
+  // scripts/fonts/family/build.py from cmux-family.json on Quillet's line box, with the Selvedge axis
+  // (`WEFT` 0 to 100, threaded exit strokes). The old cmux Sans presets above (cmuxSansB..) are the
+  // study's earlier single face; the chat's shipped cmux Sans choice is unchanged by this.
+  cmuxFamilyDisplay: {
+    family: "Study cmux Serif Display",
+    files: [{ url: cmuxFamilyDisplay, weight: "300 700" }],
+  },
+  cmuxFamilyMono: { family: "Study cmux Mono", files: [{ url: cmuxFamilyMono, weight: "300 700" }] },
+  cmuxFamilySans: { family: "Study cmux Sans (family)", files: [{ url: cmuxFamilySans, weight: "300 800" }] },
+  cmuxFamilySerif: { family: "Study cmux Serif", files: [{ url: cmuxFamilySerif, weight: "300 700" }] },
   recursive: variable("Study Recursive", recursive),
   roboto: variable("Study Roboto", roboto),
   schibsted: variable("Study Schibsted Grotesk", schibsted),

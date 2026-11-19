@@ -1,6 +1,7 @@
 """The family's signature axis: one playful detail carried through every face, as its own variation axis.
 
-Which detail is not chosen yet: hq docs/research/2026-11-19-our-own-type-family.md picks it with the bases.
+The cmux family's detail is `WEFT`, named Selvedge (hq docs/research/2026-11-19-our-own-type-family.md):
+threaded exit strokes, a continuous kind below (`weft`). The swap machinery serves step-wise details.
 This module is the machinery any choice needs, the way Geist Serif's dot-shape axis is built: a new axis
 (min, default, max), and along it steps that swap glyphs for alternates through an `rclt` feature variation.
 The alternates are drawn here from the base's own outlines, at every weight master, so a variable base keeps
@@ -49,6 +50,9 @@ def kind(name: str, default_glyphs: list[str]):
 
 def apply_signature(font: TTFont, signature: dict, face: dict) -> None:
     name = signature.get("kind")
+    if name in CONTINUOUS:
+        CONTINUOUS[name](font, signature, face)
+        return
     if name not in KINDS:
         raise SystemExit(f"signature kind {name!r} is not built yet (known: {sorted(KINDS) or 'none'})")
     fn, default_glyphs = KINDS[name]
@@ -117,6 +121,10 @@ def normalized(value: float, steps: list[dict]) -> float:
 def add_axis(font: TTFont, tag: str, name: str, steps: list[dict]) -> None:
     """Adds the axis to fvar (making one for a static base) with a named instance per step, and to STAT."""
     lo, default, hi = axis_range(steps)
+    # Tables that decode against fvar's axis count must be read before the axis lands (fontTools loads lazily).
+    for lazy in ("gvar", "cvar", "HVAR", "VVAR", "MVAR", "GDEF", "STAT", "avar"):
+        if lazy in font:
+            font[lazy].ensureDecompiled() if hasattr(font[lazy], "ensureDecompiled") else None
     names = font["name"]
     if "fvar" not in font:
         font["fvar"] = newTable("fvar")
@@ -316,3 +324,97 @@ def is_dot(contour: Contour, upem: int = 1000) -> bool:
 
 
 __all__ = ["KINDS", "apply_signature", "kind", "is_dot", "bounds", "DecomposingRecordingPen"]
+
+
+# Continuous kinds: the axis moves outlines through gvar deltas, so every value between its ends draws (no
+# glyph swap). A kind is `(font, signature, face) -> None` and adds the axis itself.
+CONTINUOUS: dict[str, Callable[[TTFont, dict, dict], None]] = {}
+
+OVERLAP_SIMPLE = 0x40
+WEFT_LETTERS = "nmhaudilt"
+
+
+def weft(font: TTFont, signature: dict, face: dict) -> None:
+    """`WEFT` (hq docs/research/2026-11-19-our-own-type-family.md): from a clean cut at 0 to a short threaded
+    exit stroke at 100, leaving the foot of a letter's last stem and leaning toward the next letter, like weft
+    passing between warp. Each letter gets one more contour, drawn with no area at 0 (all four points on the
+    stem's foot) and opened by a delta at the axis's top, so the default draws exactly as before. No advance,
+    side bearing or vertical metric changes: text never reflows when the axis moves."""
+    tag = signature.get("tag", "WEFT")
+    top = signature.get("max", 100)
+    add_axis(font, tag, signature.get("name", "Weft"),
+             [{"name": "Cut", "from": 0, "to": 0}, {"name": "Weft", "from": top, "to": top}])
+    glyf, hmtx = font["glyf"], font["hmtx"]
+    cmap = font.getBestCmap()
+    x_height = font["OS/2"].sxHeight or 530
+    letters = signature.get("glyphs", WEFT_LETTERS)
+    # A composite letter (an i of a dotless i and a dot) threads its base, the first component; marks have no foot.
+    names = []
+    for c in letters:
+        if ord(c) not in cmap:
+            continue
+        name = cmap[ord(c)]
+        while glyf[name].isComposite():
+            name = glyf[name].components[0].glyphName
+        if name not in names:
+            names.append(name)
+    for name in names:
+        glyph = glyf[name]
+        if glyph.isComposite() or glyph.numberOfContours <= 0:
+            continue
+        foot = stem_foot(glyph)
+        if foot is None:
+            raise SystemExit(f"Selvedge: {name} has no stem foot on the baseline to thread from")
+        right, stem = foot
+        advance = hmtx[name][0]
+        thread = max(24, otRound(stem * 0.5))
+        start = (right - thread, 0)
+        end_x = advance + 30  # past the advance, under the next letter's first stroke
+        end_y = otRound(x_height * 0.2)
+        # Clockwise in y-up (the outer direction): up the stem, along the top of the thread, down its tip, back.
+        full = [start, (start[0], thread), (end_x, end_y + otRound(thread * 0.6)), (end_x, end_y)]
+        add_collapsed_contour(font, name, start, full, tag)
+
+
+def stem_foot(glyph) -> tuple[int, int] | None:
+    """The bottom right corner of the glyph's last stem on the baseline, and the stem's width."""
+    # Points near the baseline (a curved or bracketed serif foot sits a few units off it), on or off curve.
+    glyph_bottom = min(y for _, y in glyph.coordinates)
+    band = max(12, -glyph_bottom + 4) if glyph_bottom > -40 else 12
+    on_base = sorted(x for (x, y) in glyph.coordinates if -band <= y <= band)
+    if len(on_base) < 2:
+        return None
+    right = on_base[-1]
+    left = next((x for x in reversed(on_base[:-1]) if 20 <= right - x <= 220), None)
+    return right, (right - left) if left is not None else 80
+
+
+def add_collapsed_contour(font: TTFont, name: str, at: tuple[int, int], full: list[tuple[int, int]], tag: str) -> None:
+    glyf = font["glyf"]
+    glyph = glyf[name]
+    n_old = len(glyph.coordinates)
+    glyph.coordinates.extend(GlyphCoordinates([at] * len(full)))
+    glyph.flags.extend(bytearray([1] * len(full)))
+    glyph.endPtsOfContours.append(n_old + len(full) - 1)
+    glyph.numberOfContours += 1
+    glyph.flags[0] |= OVERLAP_SIMPLE  # the thread overlaps the stem; macOS fills overlaps only with this bit
+    if hasattr(glyph, "program"):
+        from fontTools.ttLib.tables import ttProgram
+
+        glyph.program = ttProgram.Program()  # instructions name point numbers; the new points would shift them
+        glyph.program.fromBytecode(b"")
+    if "gvar" not in font:
+        # A static base (an axis pinned away) gets its first glyph variations here.
+        gvar = font["gvar"] = newTable("gvar")
+        gvar.version, gvar.reserved, gvar.variations = 1, 0, {}
+    if "gvar" in font:
+        variations = font["gvar"].variations.setdefault(name, [])
+        for variation in variations:
+            # The phantom points stay last; the new contour has no movement along the other axes.
+            variation.coordinates[n_old:n_old] = [(0, 0)] * len(full)
+        deltas = [None] * n_old + [(x - at[0], y - at[1]) for x, y in full] + [None] * 4
+        variations.append(TupleVariation({tag: (0.0, 1.0, 1.0)}, deltas))
+    glyph.recalcBounds(glyf)
+
+
+CONTINUOUS["weft"] = weft

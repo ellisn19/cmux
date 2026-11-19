@@ -181,6 +181,25 @@ def ink_bounds(font: TTFont) -> tuple[int, int]:
     return min(lows), max(highs)
 
 
+def referenced_name_ids(font: TTFont) -> set[int]:
+    used: set[int] = set()
+    if "fvar" in font:
+        for axis in font["fvar"].axes:
+            used.add(axis.axisNameID)
+        for instance in font["fvar"].instances:
+            used.add(instance.subfamilyNameID)
+            if instance.postscriptNameID != 0xFFFF:
+                used.add(instance.postscriptNameID)
+    if "STAT" in font:
+        stat = font["STAT"].table
+        used.add(stat.ElidedFallbackNameID)
+        for record in stat.DesignAxisRecord.Axis if stat.DesignAxisRecord else []:
+            used.add(record.AxisNameID)
+        for value in stat.AxisValueArray.AxisValue if stat.AxisValueArray else []:
+            used.add(value.ValueNameID)
+    return used
+
+
 def rename(font: TTFont, family: str, face: dict, notice: str, reserved: list[str]) -> str:
     """Names the face `<family> <face name>`, typographic family `family`, subfamily from the face. Returns the
     PostScript name. Keeps the base's copyright line (OFL 1.20) and adds ours."""
@@ -214,6 +233,12 @@ def rename(font: TTFont, family: str, face: dict, notice: str, reserved: list[st
             instance.postscriptNameID = 0xFFFF
     if "STAT" in font:
         font["STAT"].table.ElidedFallbackNameID = 2
+    # Names past 255 that nothing points at any more (the instances' PostScript names, the base's own
+    # strings) go; the ones axes, instances and STAT still name stay and are checked below.
+    used = referenced_name_ids(font)
+    for name_id in sorted({record.nameID for record in names.names}):
+        if name_id > 255 and name_id not in used:
+            names.removeNames(nameID=name_id)
     for record in names.names:
         text = record.toUnicode()
         if record.nameID in (0, 13, 14):
@@ -229,14 +254,26 @@ def rename(font: TTFont, family: str, face: dict, notice: str, reserved: list[st
 
 
 def build_face(spec: dict, face: dict, box: LineBox | None, family_x: float | None) -> tuple[TTFont, dict]:
-    font = limit_axes(load_source(face["source"]), face.get("axes", {}))
+    import vertical  # this directory
+
+    font = reload(limit_axes(load_source(face["source"]), face.get("axes", {})))
+    subset(font, face.get("extra_codepoints", []))
     scale = face.get("scale", 1.0)
+    cap = face.get("cap")  # "uniform" or "vertical": reach the family's cap height (spec "cap_height")
     if face.get("match_x_height") and family_x:
         native = x_height(font) * 1000 / font["head"].unitsPerEm
         scale = family_x / native
+    elif cap == "uniform":
+        scale = spec["cap_height"] / (vertical.match_cap(font) * 1000 / font["head"].unitsPerEm)
     to_em(font, scale)
     font = reload(font)
-    subset(font, face.get("extra_codepoints", []))
+    if cap == "vertical":
+        scale = spec["cap_height"] / vertical.match_cap(font)
+        vertical.scale_vertical(font, scale)
+    if face.get("lowercase"):
+        vertical.set_lowercase(font, spec["x_height"], spec["ascender"], spec["descender"])
+    vertical.track(font, face.get("tracking", 0))
+    font = reload(font)
     if spec.get("signature"):
         from signature import apply_signature  # this directory; a separate step so bases stay swappable
 
@@ -317,11 +354,13 @@ def write_notice(spec: dict, out: Path) -> Path:
             lines.append(line)
     lines.append(spec["notice"])
     bases = sorted({face["base"] for face in spec["faces"]})
+    faces_named = ", ".join(f"{spec['family']} {face['name']}" for face in spec["faces"])
     reserved = sorted({word for face in spec["faces"] for word in face.get("reserved", [])})
     lines += [
         "",
-        f"{spec['family']} is a Modified Version of {', '.join(bases)}, renamed, with Manaflow's modifications."
-        + (f" It does not use the Reserved Font Names {', '.join(reserved)}." if reserved else ""),
+        f"The {spec['family']} fonts ({faces_named}) are Modified Versions of {', '.join(bases)}, renamed, with Manaflow's"
+        " modifications."
+        + (f" They do not use the Reserved Font Name{'s' if len(reserved) > 1 else ''} {', '.join(repr(w) for w in reserved)}." if reserved else ""),
         "",
         "This Font Software is licensed under the SIL Open Font License, Version 1.1.",
         "This license is copied below, and is also available with a FAQ at:",

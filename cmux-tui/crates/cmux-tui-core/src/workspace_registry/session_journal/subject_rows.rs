@@ -321,10 +321,7 @@ fn subjects_of(sequence: i64, subjects_json: &str, skips: &mut Skips) -> Vec<(St
 /// connection can change it.
 pub(super) fn after_append(transaction: &Transaction<'_>, sequence: i64) -> anyhow::Result<()> {
     let through = u64::try_from(sequence).context("journal sequence is negative")?;
-    if sequence % PERIOD == 0 {
-        write_through(transaction, through)?;
-        return Ok(());
-    }
+    // MUTANT, NOT FOR A MERGE: the row that ends a period writes no subject row.
     let number = transaction
         .prepare_cached("SELECT CAST(value AS INTEGER) FROM meta WHERE key = 'schema_version'")?
         .query_row([], |row| row.get::<_, i64>(0))

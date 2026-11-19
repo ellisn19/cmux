@@ -16,7 +16,7 @@ export interface SwapFamily {
   serif: FaceKey | string;
   display: FaceKey | string;
   mono: FaceKey | string;
-  /** `font-variation-settings` for the whole sheet: the Selvedge axis, `"WEFT" 100`. */
+  /** `font-variation-settings` for the whole sheet: unset by every gallery variant, so the cmux faces draw at their default `"WEFT" 0`. */
   variation?: string;
 }
 

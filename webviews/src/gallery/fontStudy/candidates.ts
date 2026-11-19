@@ -93,7 +93,7 @@ export const FACES = {
   // The cmux family (fonts/OFL-cmux-family.txt): cmux Sans, cmux Serif (Text and Display) and cmux Mono,
   // Modified Versions of Source Sans 3, Source Serif 4 and Source Code Pro, built by
   // scripts/fonts/family/build.py from cmux-family.json on Quillet's line box, with the Selvedge axis
-  // (`WEFT` 0 to 100, threaded exit strokes). The old cmux Sans presets above (cmuxSansB..) are the
+  // (`WEFT` 0 to 100, threaded exit strokes) at its default 0, so they draw plain. The old cmux Sans presets above (cmuxSansB..) are the
   // study's earlier single face; the chat's shipped cmux Sans choice is unchanged by this.
   cmuxFamilyDisplay: {
     family: "Study cmux Serif Display",

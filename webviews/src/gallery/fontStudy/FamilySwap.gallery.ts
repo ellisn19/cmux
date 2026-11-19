@@ -4,8 +4,8 @@
 // fails if any line moves or resizes on a swap (play.ts, strict by default), so a passing variant is the
 // 0 px line-shift proof in a browser, beside scripts/fonts/family/check.py's on the files. Leo, 2026-11-19:
 // "quillet is our anthropic inspired one. we do want our own separate one!" and "cmux sans/manaflow sans".
-// The cmux family shares Quillet's line box (960 / -240 of 1000) by design, and its Selvedge axis (`WEFT`,
-// threaded exit strokes) changes no advance and no metric, so moving it moves no row either.
+// The cmux family shares Quillet's line box (960 / -240 of 1000) by design, and it draws at Selvedge (`WEFT`)
+// 0, plain faces: the axis stays in the fonts at its default, with no variant here (Leo: "selvege is kinda ugly").
 import { componentEntry } from "../format";
 import type { Play } from "../play";
 import type { FamilySwapProps, SwapFamily } from "./FamilySwap";
@@ -32,11 +32,6 @@ const CMUX: SwapFamily = {
   display: "cmuxFamilyDisplay",
   mono: "cmuxFamilyMono",
 };
-const selvedge = (weft: number): SwapFamily => ({
-  ...CMUX,
-  label: `cmux, Selvedge ${weft}`,
-  variation: `"WEFT" ${weft}`,
-});
 
 const ROWS = ["reply", "title", "mixed", "code", "display", "after"];
 
@@ -68,7 +63,7 @@ export default componentEntry<FamilySwapProps>({
   height: 420,
   widths: { narrow: 720, normal: 960, wide: 1200 },
   covers: ["gallery/fontStudy/FamilySwap.tsx#FamilySwap"],
-  keywords: ["font", "typeface", "quillet", "cmux sans", "cmux serif", "cmux mono", "selvedge", "line box", "swap"],
+  keywords: ["font", "typeface", "quillet", "cmux sans", "cmux serif", "cmux mono", "line box", "swap"],
   anchors: ROWS.map((row) => ({ selector: `[data-swap-row="${row}"]` })),
   load: async () => (await import("./FamilySwap")).FamilySwap,
   variants: {
@@ -85,10 +80,6 @@ export default componentEntry<FamilySwapProps>({
     "system-chat-line-height": variant(
       "The system font, Quillet and the cmux family at the chat's 15 px on 1.4: a set line height holds every row.",
       { families: [SYSTEM, QUILLET, CMUX], lineHeight: 1.4 },
-    ),
-    selvedge: variant(
-      "The Selvedge axis from 0 to 50 to 100 and back: threads grow from the stem feet, and no row moves.",
-      { families: [selvedge(0), selvedge(50), selvedge(100), selvedge(0)], size: 17 },
     ),
   },
 });

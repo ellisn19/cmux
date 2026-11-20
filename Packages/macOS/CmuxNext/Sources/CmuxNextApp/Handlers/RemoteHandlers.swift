@@ -33,6 +33,11 @@ enum RemoteHandlers {
                 let session = try ssh.connect(destination: text, session: invocation["session"]?.stringValue,
                                               binary: invocation["binary"]?.stringValue, stateDir: invocation["stateDir"]?.stringValue,
                                               offerInstall: interactive, byPerson: invocation.isPersonsRequest)
+                // `--name` (`cmux server install ssh://… --label`): the sidebar's name for it, as Add Machine's Name field.
+                if let label = invocation["name"]?.stringValue, !label.isEmpty, session.host.label != label {
+                    session.host = session.host.named(label)
+                    ssh.rememberHost(session)
+                }
                 if interactive { showWhenConnected(session, context) }
             }
             if let text = invocation["destination"]?.stringValue {

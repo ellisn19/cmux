@@ -563,6 +563,17 @@ export const SubagentTray = memo(function SubagentTray({
       }),
     [t, items, finished, waiting, working, chatHarness, kindsArm, kindLine],
   );
+  // The rubber band's held height and its spring back (`drawBand`, `springBack` below).
+  const folded = useRef(0);
+  const bandSpring = useRef<Animation | undefined>(undefined);
+  // A hat that goes mid-drag (its chat switched, its last line ended) ends the drag and its band.
+  useEffect(
+    () => () => {
+      cancelDrag.current?.();
+      bandSpring.current?.cancel();
+    },
+    [],
+  );
   if (items.length === 0 && finished.length === 0 && !planned) return null;
   // The counts, split by kind, then what ended and failed (trayHeadKinds.ts; Leo, 2026-11-03: "the
   // top bit aka what the collapsed area shows i think can show much more interesting stuf fthan it
@@ -664,9 +675,8 @@ export const SubagentTray = memo(function SubagentTray({
   };
   const rowHeight = () => headButton.current?.getBoundingClientRect().height || HAT_ROW;
   /// The rubber band past the one row: the hat gives `band` px from its top, sinking into the composer
-  /// under its own clip, set on the node with no render (one style write per pointer move).
-  const folded = useRef(0);
-  const bandSpring = useRef<Animation | undefined>(undefined);
+  /// under its own clip, set on the node with no render (one style write per pointer move). Its refs
+  /// (`folded`, `bandSpring`) sit with the hooks above the early return.
   const drawBand = (band: number) => {
     const node = trayNode.current;
     if (!node) return;
@@ -763,14 +773,6 @@ export const SubagentTray = memo(function SubagentTray({
     setTuckQuiet(true);
     dispatchHat(hatKey, { type: "step", by, max: maxRows() });
   };
-  // A hat that goes mid-drag (its chat switched, its last line ended) ends the drag and its band.
-  useEffect(
-    () => () => {
-      cancelDrag.current?.();
-      bandSpring.current?.cancel();
-    },
-    [],
-  );
   // The header's mark is in the accent while anything under it runs.
   const runs = running > 0 || commands > 0 || planned;
   return (

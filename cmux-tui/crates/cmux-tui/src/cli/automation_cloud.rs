@@ -469,6 +469,75 @@ mod tests {
         let _ = std::fs::remove_dir_all(&home);
     }
 
+    /// [`step`] with `PATH` led by `bin`.
+    fn step_with_path(
+        script: &str,
+        home: &std::path::Path,
+        run: &str,
+        bin: &std::path::Path,
+    ) -> (i32, String, String) {
+        let path = format!("{}:{}", bin.display(), std::env::var("PATH").unwrap_or_default());
+        let out = cmux_process::Command::new("bash")
+            .args(["-c", script])
+            .env("HOME", home)
+            .env("CMUX_RUN", run)
+            .env("PATH", path)
+            .stdin(cmux_process::Stdio::null())
+            .output()
+            .unwrap();
+        (
+            out.status.code().unwrap_or(-1),
+            String::from_utf8_lossy(&out.stdout).into(),
+            String::from_utf8_lossy(&out.stderr).into(),
+        )
+    }
+
+    /// models-scout on a fresh machine (2026-11-20): step 0 cloned manaflow-ai/cmux (1.1 GB) in the
+    /// foreground, the provider's exec gave up first ("the machine did not answer") and left a
+    /// half-made checkout with its `index.lock`. The checkout now runs detached, before the command.
+    #[cfg(unix)]
+    #[test]
+    fn a_slow_first_clone_runs_detached_so_the_start_step_answers_at_once() {
+        let home = std::env::temp_dir().join(format!("cmux-cloud-clone-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        let bin = home.join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        // A git whose clone takes 3 s and makes the checkout; every other verb succeeds.
+        let git = bin.join("git");
+        std::fs::write(&git, "#!/bin/sh\nif [ \"$1\" = clone ]; then sleep 3; for a; do w=\"$a\"; done; mkdir -p \"$w/.git\"; fi\nexit 0\n").unwrap();
+        std::fs::set_permissions(&git, std::os::unix::fs::PermissionsExt::from_mode(0o755))
+            .unwrap();
+        let mut c = scout(60);
+        c.command = "pwd; echo hello".into();
+
+        let started = std::time::Instant::now();
+        let (code, out, err) = step_with_path(&start_script(&c), &home, "run_clone", &bin);
+        assert_eq!(code, 0, "{out} {err}");
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(2),
+            "step 0 waited for the clone: {:?}",
+            started.elapsed()
+        );
+        let (code, out, err) = step_with_path(&wait_script(20, true), &home, "run_clone", &bin);
+        assert_eq!(code, 0, "{err}");
+        assert!(out.contains("hello") && out.contains("checkouts/manaflow-ai-cmux"), "{out}");
+
+        // A half-made checkout (a clone the provider ended) is fetched again, its lock cleared.
+        std::fs::write(
+            home.join(".cmux/automations/checkouts/manaflow-ai-cmux/.git/index.lock"),
+            "",
+        )
+        .unwrap();
+        step_with_path(&start_script(&c), &home, "run_again", &bin);
+        let (code, out, err) = step_with_path(&wait_script(20, true), &home, "run_again", &bin);
+        assert_eq!(code, 0, "{err}");
+        assert!(out.contains("hello"), "{out}");
+        assert!(
+            !home.join(".cmux/automations/checkouts/manaflow-ai-cmux/.git/index.lock").exists()
+        );
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
     #[test]
     fn create_params_make_a_chief_job_with_a_manual_trigger() {
         let p = create_params(

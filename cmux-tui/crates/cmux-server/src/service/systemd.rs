@@ -141,7 +141,12 @@ pub fn install(s: &Services<'_>, restart: bool) -> Result<ServiceReport> {
         report.changed |= fsx::write_if_changed(path, text.as_bytes(), 0o644)?;
     }
     if !system(s) {
-        ensure_linger(s, &mut report);
+        if s.linger {
+            ensure_linger(s, &mut report);
+        } else {
+            // `install --user`: linger stays as it is.
+            report.linger = linger_state(s.runner, &s.user);
+        }
     }
     let ctl = systemctl(s);
     if report.changed {

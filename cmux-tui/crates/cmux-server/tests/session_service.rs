@@ -214,3 +214,124 @@ fn uninstall_removes_the_session_unit_and_keeps_the_binary() {
     assert!(!Path::new(&unit).exists());
     assert!(env.binary().exists(), "the binary stays: cmux clients reuse it over SSH");
 }
+
+#[cfg(unix)]
+#[test]
+fn a_file_planted_next_to_the_binary_is_never_written_through() {
+    if skip_as_root() {
+        return;
+    }
+    let env = Env::new();
+    let bin = env.home().join(".local/bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    let victim = env.home().join("victim");
+    std::fs::write(&victim, b"keep me").unwrap();
+    // The temporary name an older build used: predictable from the pid.
+    let planted = bin.join(format!(".cmux-tui.{}.tmp", std::process::id()));
+    std::os::unix::fs::symlink(&victim, &planted).unwrap();
+    env.run("install --binary --json").unwrap();
+    assert_eq!(std::fs::read(&victim).unwrap(), b"keep me");
+    assert_eq!(std::fs::read(env.binary()).unwrap(), std::fs::read(env.exe()).unwrap());
+    assert!(std::fs::symlink_metadata(env.binary()).unwrap().is_file());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_directory_others_can_write_to_is_refused() {
+    use std::os::unix::fs::PermissionsExt as _;
+    if skip_as_root() {
+        return;
+    }
+    let env = Env::new();
+    let bin = env.home().join(".local/bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o777)).unwrap();
+    let err = env.run("install --binary --json").unwrap_err();
+    assert!(format!("{err:?}").contains("chmod go-w"), "{err:?}");
+    assert!(!env.binary().exists());
+    std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let unit = env.run("install --binary --json").unwrap()["unit"].as_str().unwrap().to_owned();
+    let dir = Path::new(&unit).parent().unwrap().to_owned();
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o757)).unwrap();
+    let err = env.run("install --binary --json").unwrap_err();
+    assert!(format!("{err:?}").contains("chmod go-w"), "{err:?}");
+}
+
+#[test]
+fn a_unit_cmux_did_not_write_is_refused_and_left_alone() {
+    if skip_as_root() {
+        return;
+    }
+    let env = Env::new();
+    let unit = env.run("install --binary --json").unwrap()["unit"].as_str().unwrap().to_owned();
+    env.run("uninstall").unwrap();
+    let mine = "[Service]\nExecStart=/usr/local/bin/my-own-server\n";
+    std::fs::write(&unit, mine).unwrap();
+    let before = env.runner.lines().len();
+    let err = env.run("install --binary --json").unwrap_err();
+    assert!(format!("{err:?}").contains("not written by cmux"), "{err:?}");
+    assert_eq!(std::fs::read_to_string(&unit).unwrap(), mine);
+    // Nothing was enabled, started or stopped.
+    assert_eq!(env.runner.lines().len(), before, "{:?}", env.runner.lines());
+    let out = env.run("uninstall --json").unwrap();
+    assert_eq!(std::fs::read_to_string(&unit).unwrap(), mine);
+    assert!(out["warnings"].to_string().contains("not written by cmux"), "{out}");
+    let lines = env.runner.lines()[before..].join("\n");
+    assert!(!lines.contains("disable") && !lines.contains("bootout"), "{lines}");
+}
+
+#[test]
+fn install_user_leaves_linger_alone() {
+    if skip_as_root() {
+        return;
+    }
+    let env = Env::new();
+    let out = env.run("install --binary --user --json").unwrap();
+    assert_eq!(out["installed"], true, "{out}");
+    let lines = env.runner.lines().join("\n");
+    assert!(!lines.contains("enable-linger"), "{lines}");
+    assert_eq!(env.run("install --user --system").unwrap_err().kind.code(), 2);
+}
+
+#[test]
+fn uninstall_says_what_stays_and_how_to_remove_it() {
+    if skip_as_root() {
+        return;
+    }
+    let env = Env::new();
+    env.runner.answer(
+        "show-user",
+        Output { code: Some(0), stdout: b"yes\n".to_vec(), ..Output::default() },
+    );
+    env.run("install --binary").unwrap();
+    let out = env.run("uninstall --json").unwrap();
+    let notes = out["notes"].to_string();
+    assert!(notes.contains(&format!("rm {}", env.binary().display())), "{out}");
+    if cfg!(target_os = "linux") {
+        assert!(notes.contains("loginctl disable-linger"), "{out}");
+    }
+}
+
+#[test]
+fn logs_shows_the_service_log() {
+    if skip_as_root() {
+        return;
+    }
+    let env = Env::new();
+    assert_eq!(env.run("logs --lines 0").unwrap_err().kind.code(), 2);
+    assert_eq!(env.run("logs --lines many").unwrap_err().kind.code(), 2);
+    if cfg!(target_os = "linux") {
+        // Human output replaces this process with journalctl.
+        let _ = env.run("logs --lines 5 --follow");
+        let requests = env.exec.requests();
+        let last = requests.last().expect("an exec");
+        assert!(last.program.ends_with("journalctl"), "{last:?}");
+        assert_eq!(
+            last.args,
+            ["--user", "--unit", "cmux-server.service", "--lines", "5", "--no-pager", "--follow"]
+        );
+    } else if cfg!(target_os = "macos") {
+        let out = env.run("logs --json").unwrap();
+        assert_eq!(out["lines"], serde_json::json!([]), "{out}");
+    }
+}

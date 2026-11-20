@@ -204,6 +204,7 @@ import { topZoneOffset } from "./overlayLayout";
 import "./jumpPair.css";
 import { jumpUpButton } from "./jumpUp.experiment";
 import { experimentArm } from "../../experiments/experiment";
+import { transcriptCards } from "./conversation/transcriptCards.experiment";
 import { jumpPairLook } from "./jumpPair.experiment";
 import { MOTION_MS, MOTION_SEND_CURVE, MOTION_SEND_MS } from "../../motion/scale.generated";
 import { SHOWN_SCROLLER_ATTRIBUTE, followShownScrollerFade, SHOWN_INK_PROPERTIES } from "../../scrollers";
@@ -2002,6 +2003,7 @@ function TranscriptView({
   );
   /// The follow motion's arm (followMotion.experiment.ts), read once per transcript. Every arm but
   /// `eased` (followGlide, the view before) chases each move of the rows in view (followChase.ts).
+  const [cardLook] = useState(() => experimentArm(transcriptCards));
   const [followArm] = useState(() => experimentArm(followMotion));
   /// Jump up's arm (jumpUp.experiment.ts), read once per transcript: `off` (the default) draws no
   /// Jump up and keeps no place for it on a scroll.
@@ -7189,6 +7191,7 @@ function TranscriptView({
           <div
             ref={ref}
             className="acpmux-scroll"
+            data-transcript-cards={cardLook}
             role="feed"
             // The slim arm's send: the bubble only fades in where it lands, on a send step of at most
             // 120 ms (conversation.css SEND-SLIM), never opening from the right on a clip the main thread

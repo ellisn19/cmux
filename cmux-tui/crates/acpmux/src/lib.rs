@@ -77,6 +77,7 @@ pub mod context_inventory;
 pub mod cpu_class;
 pub mod cwd_pin;
 pub mod daemon;
+pub mod daemon_skew;
 pub(crate) mod daemon_parts;
 mod dead_temps;
 mod default_harness;

@@ -1,5 +1,6 @@
 import AppKit
 import CmuxNextActions
+import CmuxNextAgentActivity
 import CmuxNextAgentLanes
 import CmuxNextAgentPane
 import CmuxNextCompat
@@ -72,7 +73,9 @@ enum AgentHandlers {
                 return .done
             })
         }
-        registry.bind("agentActivity.open", run: { _ in context.services.agentActivityPage.open() })
+        registry.bind("agentActivity.open", unavailable: { [weak services = context.services] in
+            services?.settings?.snapshot.personalOrchestrationMonitor == true ? nil : AgentActivityPaneStrings.previewRefusal
+        }, run: { _ in context.services.agentActivityPage.open() })
         context.services.pages.register(context.services.macScreenTabs)
         MacScreenActions(pages: context.services.macScreenPages, selectedTab: { context.scope().tab?.id.rawValue },
                          providerKey: { id, machine in

@@ -1268,6 +1268,13 @@
     },
     {
       "agent": "userOnly",
+      "why": "Whether the personal orchestration monitor is visible: the person decides this experimental read-only surface.",
+      "keys": [
+        "labs.personalOrchestrationMonitor"
+      ]
+    },
+    {
+      "agent": "userOnly",
       "why": "Whether cmux's own pages open developer tools, which read and change their live content: the person's call.",
       "keys": [
         "developerTools.appPages"

@@ -149,7 +149,7 @@ extension TabContentCache {
         }
         #endif
         if AgentActivityPageAddress.matches(url) {
-            let page = services.agentActivityPage.makePage(key: key, engine: engine, profile: profile)
+            guard let page = services.agentActivityPage.makePage(key: key, engine: engine, profile: profile) else { return nil }
             page.onNavigate = { [weak self] target in self?.leaveAppPage(key, to: target) }
             return page
         }

@@ -26,6 +26,10 @@ final class AgentActivityPageService {
     /// Selects the active window's Agent activity tab, else opens one beside
     /// the focused tab.
     func open() {
+        guard services.settings?.snapshot.personalOrchestrationMonitor == true else {
+            services.registry.refuse(AgentActivityPaneStrings.previewRefusal)
+            return
+        }
         guard let window = services.windows.active else {
             services.registry.refuse(RefusalStrings.noWindowOpen)
             return
@@ -39,8 +43,9 @@ final class AgentActivityPageService {
         window.focusedPane?.newBrowserTab(url: AgentActivityPageAddress.url)
     }
 
-    func makePage(key: String, engine: BrowserEngineKind, profile: BrowserProfileID) -> AgentActivityPageTab {
-        AgentActivityPageTab(id: BrowserTabID(rawValue: key), engine: engine, profile: profile, source: makeSource())
+    func makePage(key: String, engine: BrowserEngineKind, profile: BrowserProfileID) -> AgentActivityPageTab? {
+        guard services.settings?.snapshot.personalOrchestrationMonitor == true else { return nil }
+        return AgentActivityPageTab(id: BrowserTabID(rawValue: key), engine: engine, profile: profile, source: makeSource())
     }
 
     /// Shows a lane's chat where ``AgentChatJump`` says it lives. Back returns

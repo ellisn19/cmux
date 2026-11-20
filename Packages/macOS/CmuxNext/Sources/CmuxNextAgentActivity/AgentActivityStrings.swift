@@ -10,6 +10,10 @@ nonisolated enum AgentActivityStrings {
         t("operation.unsupported", "This operation is not supported by Agent Activity.")
     }
 
+    static var previewRefusal: String {
+        t("pane.refusal.preview", "Agent Activity is a Labs experiment: turn on Personal Orchestration Monitor in Settings > Advanced > Labs.")
+    }
+
     static var title: String { t("pane.title", "Agent Activity") }
     static var filter: String { t("pane.filter", "Filter") }
     static var emptyTitle: String { t("pane.empty.title", "No computer use yet") }
@@ -114,5 +118,6 @@ nonisolated enum AgentActivityStrings {
 /// Strings the App needs for the pane (tab title, local machine name).
 public nonisolated enum AgentActivityPaneStrings {
     public static var title: String { AgentActivityStrings.title }
+    public static var previewRefusal: String { AgentActivityStrings.previewRefusal }
     public static var thisMac: String { AgentActivityStrings.thisMac }
 }

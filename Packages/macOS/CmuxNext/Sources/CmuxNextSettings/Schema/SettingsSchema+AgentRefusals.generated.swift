@@ -96,6 +96,8 @@ extension SettingsSchema {
         "labs.machineJoin": .network,
         // On, a live code build loads Swift patches into the running app: only the person turns that on.
         "labs.liveCode": .userOnly,
+        // Whether the personal orchestration monitor is visible: the person decides this experimental read-only surface.
+        "labs.personalOrchestrationMonitor": .userOnly,
         // Whether cmux's own pages open developer tools, which read and change their live content: the person's call.
         "developerTools.appPages": .userOnly,
         // Whether the person's Command Palette lists the debug commands: the person's call.

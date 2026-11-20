@@ -29808,6 +29808,28 @@
         }
       }
     },
+    "settings.labs.liveTree": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live Tree"
+          }
+        }
+      }
+    },
+    "settings.labs.liveTree.help": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show the shared live-tree path and compile lanes in the agent pane."
+          }
+        }
+      }
+    },
     "settings.labs.voiceRoom": {
       "extractionState": "manual",
       "localizations": {

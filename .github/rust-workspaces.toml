@@ -154,3 +154,7 @@ skip = "measure harness (wsfactory, bench workspace-factory): no CI tests by rul
 [[workspace]]
 root = "examples/customize-demo/looks/check"
 skip = "the customize demo's looks check (#47546): run by hand over examples/customize-demo/looks/*.json (cargo run, see its src/main.rs); no CI tests by rule"
+
+[[workspace]]
+root = "experiments/gcp-credit-workload"
+skip = "default-off receipt experiment; author runs cargo test through cmux-ci test; no new CI tests by rule"

@@ -3824,6 +3824,12 @@ function AcpmuxPane({ initialChat }: { initialChat?: InitialChat }) {
   // Session Info shows: every listed chat's usage is read now (direct.ts `refreshUsage`).
   const refreshUsage = useCallback(() => directClient.current?.refreshUsage(), []);
   // Session Info's Changes row reads the folder's git changes (session-info/changeCounts.ts).
+  const readLiveTree = useCallback(
+    () => snapshot.sessionId
+      ? directClient.current?.liveTreeStatus(snapshot.sessionId) ?? Promise.resolve(undefined)
+      : Promise.resolve(undefined),
+    [snapshot.sessionId],
+  );
   const readChanges = useCallback(
     (scope: string) => directClient.current?.gitDiffCounts(scope) ?? Promise.reject(new Error()),
     [],
@@ -14179,8 +14185,8 @@ function AcpmuxPane({ initialChat }: { initialChat?: InitialChat }) {
                       <ThreadTitle key={snapshot.sessionId} title={chatName} onRename={renameFromTitle} />
                     )}
                   </ChatHeaderStatus>
-                  {liveTreeEnabled && snapshot.sessionId && <LiveTreePill cwd={snapshot.summary?.cwd} />}
                   <div className="acpmux-handoff-header-tools" ref={tabRowTools}>
+                    {liveTreeEnabled && snapshot.sessionId && <LiveTreePill key={snapshot.sessionId} cwd={snapshot.summary?.cwd} readStatus={readLiveTree} />}
                     <LivePresenceStack
                       sessionId={snapshot.sessionId ?? snapshot.summary?.sessionId}
                       fallback={snapshot.presence}

@@ -56,8 +56,11 @@ function useRowShift(index: number) {
     const tops = [...root.querySelectorAll<HTMLElement>("[data-swap-row]")].map(
       (row) => row.getBoundingClientRect().top - base,
     );
-    first.current ??= tops;
-    const max = Math.max(0, ...tops.map((top, i) => Math.abs(top - (first.current?.[i] ?? top))));
+    // The first family's row tops, kept as the reference every later swap is measured against.
+    // A plain check, not `??=`: the React Compiler cannot lower `??=` yet (React Doctor's react-hooks-js/todo).
+    if (first.current === null) first.current = tops;
+    const reference = first.current;
+    const max = Math.max(0, ...tops.map((top, i) => Math.abs(top - (reference[i] ?? top))));
     setShift({ tops, max });
   }, [index]);
   return { sheet, shift };

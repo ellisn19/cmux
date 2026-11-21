@@ -50,8 +50,8 @@ use sha2::{Digest, Sha256};
 
 /// The older build's copy, and what step 1 printed for it.
 const COPY: &str = "/tmp/daemon-git-cost-drill-6e6a2996-cmux-tui";
-const COPY_BYTES: u64 = 364_314_440;
-const COPY_SHA256: &str = "4651420dd59ea62476daa3f79a8dc2e66bb6aceb36dce6cef9e2a8237cd7f52e";
+const COPY_BYTES: u64 = 364_348_408;
+const COPY_SHA256: &str = "ea214bd52f721104d1b648003624b35570ad2af47352596469b418e6a1048c5a";
 
 const REGISTRY: &str = "workspace-registry.sqlite3";
 const CONVERSATIONS: &str = "conversations.sqlite3";

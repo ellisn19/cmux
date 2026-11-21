@@ -134,8 +134,47 @@ final class OmnibarFieldEditor: NSTextView {
         super.pasteAsPlainText(sender)
     }
 
+    /// The whole text selected (focus selects the whole address; Cmd-A) shows the line from its start, where the
+    /// resting field draws it, as Chrome's omnibox does; a drag's selection keeps the scroll the drag left. AppKit
+    /// scrolled a selection wider than the field to its own pick of visible, which moved a long address left on focus
+    /// and back on blur (Lawrence 2026-11-20).
+    override func scrollRangeToVisible(_ range: NSRange) {
+        noteLineStart()
+        guard showsLineStart(for: range) else { return super.scrollRangeToVisible(range) }
+        scrollToLineStart()
+    }
+
+    private func showsLineStart(for range: NSRange) -> Bool {
+        range.location == 0 && range.length > 0 && range.length == (string as NSString).length
+    }
+
+    /// The clip view's horizontal origin when this editor joined the field, before any scroll: where AppKit shows the
+    /// line's start, on the resting field's pixels (`EditorAlignedTextFieldCell`). Nil until the first selection or
+    /// scroll after the editor moved into a field.
+    private var lineStartX: CGFloat?
+
+    override func viewWillMove(toSuperview newSuperview: NSView?) {
+        super.viewWillMove(toSuperview: newSuperview)
+        lineStartX = nil
+    }
+
+    private func noteLineStart() {
+        guard lineStartX == nil, let clip = superview as? NSClipView else { return }
+        lineStartX = clip.bounds.origin.x
+    }
+
+    /// Returns the clip view to ``lineStartX``. That origin can lie left of the clip view's document rect, where
+    /// `NSClipView.scroll(to:)` would clamp it, so the bounds are set directly.
+    private func scrollToLineStart() {
+        guard let clip = superview as? NSClipView, let x = lineStartX, clip.bounds.origin.x != x else { return }
+        clip.setBoundsOrigin(NSPoint(x: x, y: clip.bounds.origin.y))
+        (delegate as? NSView)?.needsDisplay = true
+    }
+
     override func setSelectedRanges(_ ranges: [NSValue], affinity: NSSelectionAffinity, stillSelecting: Bool) {
+        noteLineStart()
         super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelecting)
+        if !stillSelecting, ranges.count == 1, showsLineStart(for: ranges[0].rangeValue) { scrollToLineStart() }
         // Drags report once, when they end; edits report through didChangeText.
         guard !stillSelecting, !isChangingText else { return }
         sink?.fieldEditorDidChange(kind: nil)
@@ -244,6 +283,14 @@ final class OmnibarFieldEditor: NSTextView {
 /// from 12 to 18 pt).
 final class AddressFieldCell: EditorAlignedTextFieldCell {
     let editor = OmnibarFieldEditor()
+
+    /// A long address fades out before the star and the toolbar buttons, as a tab's title fades before its edge
+    /// (`MarqueeLabel.fadeWidth`).
+    override var overflowFadeWidth: CGFloat { Metrics.space6 }
+
+    /// No expansion tool tip: AppKit's hover window redrew a truncated address's whole text on top of the star and
+    /// the toolbar buttons, off the field's own line, until a click (Lawrence 2026-11-20). The address fades instead.
+    override func expansionFrame(withFrame cellFrame: NSRect, in view: NSView) -> NSRect { .zero }
 
     override func fieldEditor(for controlView: NSView) -> NSTextView? { editor }
 }

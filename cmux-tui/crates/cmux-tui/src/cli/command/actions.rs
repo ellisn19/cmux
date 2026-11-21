@@ -483,6 +483,8 @@ pub(in crate::cli) const ACTIONS: &[ActionSpec] = &[
             switch("down", "New pane below"),
             switch("left", "New pane to the left"),
             switch("up", "New pane above"),
+            switch("browser", "Create a browser pane instead of a terminal"),
+            opt("url", "<url>", "Browser URL (requires --browser)"),
             opt("ratio", "<value>", "Share of the space the existing pane keeps"),
             opt("viewport-width", "<fraction>", "Viewport width; requires --right"),
             opt("cwd", "<path>", "Working directory"),

@@ -942,6 +942,18 @@ fn parse_pane_strings(
             let mut params = Map::new();
             let direction = take_direction_switch(flags)?.unwrap_or_else(|| "right".into());
             params.insert("direction".into(), Value::String(direction.clone()));
+            let browser = flags.boolean("browser");
+            let url = flags.take("url");
+            if browser {
+                let url = url.ok_or_else(|| UsageError::new("--browser requires --url <url>"))?;
+                if url.is_empty() {
+                    return Err(UsageError::new("--url cannot be empty"));
+                }
+                params.insert("browser".into(), Value::Bool(true));
+                params.insert("url".into(), Value::String(url));
+            } else if url.is_some() {
+                return Err(UsageError::new("--url requires --browser"));
+            }
             if let Some(ratio) = flags.take("ratio") {
                 insert_ratio(&mut params, "ratio", "--ratio", ratio)?;
             }
@@ -3423,6 +3435,38 @@ mod tests {
 
     fn strings(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| (*value).to_string()).collect()
+    }
+
+    #[test]
+    fn pane_split_browser_sends_url_without_terminal_fields() {
+        let ParsedCommand::Command { plan: CommandPlan::Protocol(request), .. } = parse(&strings(&[
+            "pane", "current", "split", "--right", "--browser", "--url", "https://example.com",
+        ]))
+        .unwrap()
+        else {
+            panic!("expected a typed pane.split request");
+        };
+        assert_eq!(request.operation.name().unwrap(), "pane.split");
+        assert_eq!(request.params["direction"], "right");
+        assert_eq!(request.params["browser"], true);
+        assert_eq!(request.params["url"], "https://example.com");
+        assert!(request.params.get("argv").is_none());
+        assert!(request.params.get("shell").is_none());
+    }
+
+    #[test]
+    fn pane_split_browser_requires_url_and_rejects_url_for_terminals() {
+        let Err(missing) = parse(&strings(&["pane", "current", "split", "--browser"])) else {
+            panic!("browser splits must require a URL");
+        };
+        assert!(missing.error.0.contains("--browser requires --url"));
+        let Err(unexpected) = parse(&strings(&[
+            "pane", "current", "split", "--url", "https://example.com",
+        ]))
+        else {
+            panic!("terminal splits must reject a browser URL");
+        };
+        assert!(unexpected.error.0.contains("--url requires --browser"));
     }
 
     #[test]

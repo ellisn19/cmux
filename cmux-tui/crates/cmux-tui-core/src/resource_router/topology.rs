@@ -924,6 +924,35 @@ mod tests {
     }
 
     #[test]
+    fn browser_pane_split_creates_only_the_browser_surface() {
+        let mux = mux();
+        let created = terminal_workspace(&mux, "browser-split");
+        let pane = created["value"]["pane_id"].as_str().unwrap().to_string();
+        let split = dispatch(
+            &mux,
+            parsed(
+                ResourceOperation::PaneSplit,
+                selectors(None, None, Some(&pane), None),
+                json!({
+                    "direction":"right",
+                    "browser":true,
+                    "url":"about:blank#browser-split",
+                }),
+                Some("browser-pane-split"),
+            ),
+        )
+        .unwrap();
+        assert_eq!(split["value"]["kind"], "browser");
+        assert!(split["value"]["browser_id"].as_str().is_some());
+
+        let snapshot = public_session_snapshot(&mux).unwrap();
+        assert_eq!(snapshot["terminals"].as_array().unwrap().len(), 1);
+        assert_eq!(snapshot["browsers"].as_array().unwrap().len(), 1);
+        assert_eq!(snapshot["panes"].as_array().unwrap().len(), 2);
+        mux.shutdown();
+    }
+
+    #[test]
     fn topology_closes_leave_terminal_lifetime_stream_unchanged() {
         for (operation, selector_field) in [
             (ResourceOperation::WorkspaceClose, "workspace_id"),

@@ -796,7 +796,7 @@ USAGE
   cmux pane list
   cmux pane create [--correlation-key <value>]
   cmux pane <selector> show|rename|focus|close
-  cmux pane <selector> split [--right|--down] [--ratio <value>]
+  cmux pane <selector> split [--right|--down|--left|--up] [--browser --url <url>] [--ratio <value>]
     [--viewport-width <fraction>] [--correlation-key <value>]
   cmux pane <selector> focus direction <left|right|up|down>
   cmux pane <selector> neighbor <left|right|up|down>

@@ -196,6 +196,30 @@ describe("cloud MCP tool arguments", () => {
     ]);
   });
 
+  test("split_browser_pane sends one browser split command", async () => {
+    const { gateway, calls } = fakeGateway([ok({ value: { kind: "browser", pane_id: "pane_new", browser_id: "browser_new" } })]);
+    const result = await callCloudMcpTool(gateway, "split_browser_pane", {
+      machine_id: "vm-a",
+      pane_id: "pane_228c5e7589391886d2e22f31759e71e4",
+      url: "https://example.com",
+    });
+    expect(result.structuredContent).toMatchObject({ kind: "browser", browser_id: "browser_new" });
+    expect(await shellWords(calls[0].args)).toEqual([
+      "--session", "cloud", "--json", "pane", "pane_228c5e7589391886d2e22f31759e71e4",
+      "split", "--right", "--browser", "--url", "https://example.com",
+    ]);
+  });
+
+  test("split_browser_pane rejects an invalid pane before reaching the machine", async () => {
+    const { gateway, calls } = fakeGateway();
+    const result = await callCloudMcpTool(gateway, "split_browser_pane", {
+      machine_id: "vm-a", pane_id: "term_bad", url: "https://example.com",
+    });
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toMatchObject({ error: "invalid_arguments" });
+    expect(calls).toHaveLength(0);
+  });
+
   test("read_terminal returns the text once, as content", async () => {
     const { gateway } = fakeGateway([ok({ text: "hello", rows: 24 })]);
     const result = await callCloudMcpTool(gateway, "read_terminal", { machine_id: "vm-a", terminal_id: TERMINAL });

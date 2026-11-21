@@ -29,6 +29,7 @@ const MAX_BATCH_LENGTH = 8;
 const MACHINE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const TERMINAL_ID_PATTERN = /^term_[A-Za-z0-9]{1,64}$/;
 const WORKSPACE_ID_PATTERN = /^ws_[A-Za-z0-9]{1,64}$/;
+const PANE_ID_PATTERN = /^pane_[A-Za-z0-9]{1,64}$/;
 
 export type CloudMcpMachine = {
   readonly id: string;
@@ -85,6 +86,10 @@ const terminalIdSchema = {
   type: "string",
   description: "Terminal id (term_…) from list_terminals or run_agent.",
 };
+const paneIdSchema = {
+  type: "string",
+  description: "Pane id (pane_…) from a workspace or pane operation.",
+};
 
 export const CLOUD_MCP_TOOLS: readonly ToolDefinition[] = [
   {
@@ -138,6 +143,22 @@ export const CLOUD_MCP_TOOLS: readonly ToolDefinition[] = [
       additionalProperties: false,
     },
     annotations: { title: "Read terminal", readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  {
+    name: "split_browser_pane",
+    description: "Create a browser pane beside an existing pane in one operation, without creating a terminal first.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        machine_id: machineIdSchema,
+        pane_id: paneIdSchema,
+        direction: { type: "string", enum: ["right", "down", "left", "up"] },
+        url: { type: "string", description: "URL to load in the new browser pane." },
+      },
+      required: ["machine_id", "pane_id", "url"],
+      additionalProperties: false,
+    },
+    annotations: { title: "Split browser pane", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   },
   {
     name: "send_input",
@@ -207,6 +228,14 @@ function requireTerminalId(args: JsonObject): string {
   const value = requireString(args, "terminal_id");
   if (!TERMINAL_ID_PATTERN.test(value)) {
     throw new CloudMcpToolError("invalid_arguments", "`terminal_id` must be a term_… id from list_terminals or run_agent.");
+  }
+  return value;
+}
+
+function requirePaneId(args: JsonObject): string {
+  const value = requireString(args, "pane_id");
+  if (!PANE_ID_PATTERN.test(value)) {
+    throw new CloudMcpToolError("invalid_arguments", "`pane_id` must be a pane_… id from a workspace or pane operation.");
   }
   return value;
 }
@@ -352,6 +381,21 @@ async function readTerminal(gateway: CloudMcpGateway, args: JsonObject): Promise
   return toolSuccess({ machine_id: machineId, terminal_id: terminalId, source, complete: output?.complete === true }, text);
 }
 
+async function splitBrowserPane(gateway: CloudMcpGateway, args: JsonObject): Promise<ToolResult> {
+  rejectUnknownArguments(args, ["machine_id", "pane_id", "direction", "url"]);
+  const machineId = requireMachineId(args);
+  const paneId = requirePaneId(args);
+  const url = requireString(args, "url");
+  const direction = args.direction ?? "right";
+  if (direction !== "right" && direction !== "down" && direction !== "left" && direction !== "up") {
+    throw new CloudMcpToolError("invalid_arguments", "`direction` must be right, down, left, or up.");
+  }
+  const response = await runCmuxTuiJson(gateway, machineId, [
+    "pane", paneId, "split", `--${direction}`, "--browser", "--url", url,
+  ]);
+  return toolSuccess({ machine_id: machineId, pane_id: paneId, direction, url, ...mutationValue(response) });
+}
+
 async function sendInput(gateway: CloudMcpGateway, args: JsonObject): Promise<ToolResult> {
   rejectUnknownArguments(args, ["machine_id", "terminal_id", "text", "submit"]);
   const machineId = requireMachineId(args);
@@ -378,6 +422,7 @@ export async function callCloudMcpTool(gateway: CloudMcpGateway, name: string, r
       case "list_terminals": return await listTerminals(gateway, args);
       case "run_agent": return await runAgent(gateway, args);
       case "read_terminal": return await readTerminal(gateway, args);
+      case "split_browser_pane": return await splitBrowserPane(gateway, args);
       case "send_input": return await sendInput(gateway, args);
       default: return toolFailure("unknown_tool", `Unknown tool: ${name}`);
     }

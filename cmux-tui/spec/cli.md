@@ -379,11 +379,17 @@ screen <selector> pane ...
 
 pane list|create
 pane <selector> show|rename|focus|close|split|neighbor|swap|zoom|run
+pane <selector> split [--right|--down|--left|--up] [--browser --url <url>]
 pane <selector> move --to-pane <selector> [--split <dir>]|--to-tab <selector>|--to-workspace <selector>|--new-screen [--name <value>] [--focus]
 pane <selector> focus direction <left|right|up|down>
 pane <selector> split ratio set
 pane <selector> viewport width set
 pane <selector> tab ...
+
+`pane <selector> split --browser --url <url>` creates the browser surface in
+the new pane as one operation. It does not create a terminal first; the
+response identifies the new `pane_id` and `browser_id`. `--url` is required
+when `--browser` is present and is rejected on terminal splits.
 
 tab list
 tab create terminal|browser

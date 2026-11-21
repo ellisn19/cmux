@@ -539,8 +539,10 @@ structures. Viewport columns retain stable IDs and widths. The document also
 retains active and zoomed pane IDs. Nested same-direction splits are not
 flattened. A rightward `pane.split` may include `viewport_width` from 0.1
 through 1.0 to create the terminal as a separate scrolling viewport column;
-ordinary splits omit it. `screen.create` returns the complete created terminal
-path.
+ordinary splits omit it. A split may instead send `browser: true` and a
+nonempty `url`; this creates one browser tab in the new pane without reserving
+or spawning a terminal. The result path then contains `kind: browser` and a
+`browser_id`. `screen.create` returns the complete created terminal path.
 
 `workspace.create` requires `initial_content: terminal|empty`.
 `workspace.run` and `pane.run` accept exactly one of a nonempty `argv`

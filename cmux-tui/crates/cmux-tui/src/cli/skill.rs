@@ -84,6 +84,13 @@ pub(super) const RECIPES: &[Recipe] = &[
                the raw output since an offset.",
     },
     Recipe {
+        ask: "Open a URL in a browser pane beside me.",
+        commands: &["cmux --json pane <pane> split --right --browser --url https://example.com"],
+        read: "This is one operation: `value.pane_id` and `value.browser_id` identify the new \
+               pane and browser. It creates no terminal in the browser pane and keeps the \
+               person's focus.",
+    },
+    Recipe {
         ask: "Start Claude (or Codex) in a new pane and give it a task.",
         commands: &[
             "cmux --json agent start alpha --no-focus",

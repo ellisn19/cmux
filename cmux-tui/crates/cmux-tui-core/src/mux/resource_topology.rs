@@ -42,6 +42,7 @@ struct ResourceEffectIntentContext<'a> {
 struct PaneAddOptions<'a> {
     direction: Option<&'a str>,
     cwd: Option<String>,
+    browser_url: Option<String>,
     size: Option<(u16, u16)>,
     ratio: Option<f32>,
     viewport_width: Option<f32>,
@@ -3911,7 +3912,7 @@ impl Mux {
         let operation: ResourceOperation =
             serde_json::from_value(Value::String(recovery.operation.clone()))
                 .context("stored resource creation has an invalid operation")?;
-        match created_identity_kind(operation) {
+        match created_identity_kind_for_intent(operation, &recovery.intent) {
             Some(CreatedIdentityKind::Browser) => {
                 self.browser_creation_evidence(&recovery.intent, recovery.interrupted)
             }
@@ -4047,7 +4048,14 @@ impl Mux {
             "path":resolved.path,
             "fields":fields,
         });
-        if topology_effect_creates_terminal(operation) {
+        let browser_split = operation == ResourceOperation::PaneSplit
+            && fields.get("browser").and_then(Value::as_bool).unwrap_or(false);
+        if browser_split {
+            intent["browser_reservation"] = json!({
+                "tab_id":TabPublicId::random()?,
+                "browser_id":BrowserPublicId::random()?,
+            });
+        } else if topology_effect_creates_terminal(operation) {
             let terminal_id = TerminalId::random()?.to_hex();
             let mutation = WorkspaceMutation::local(context.mutation_origin);
             intent["terminal_reservation"] = json!({
@@ -4276,6 +4284,7 @@ impl Mux {
                         PaneAddOptions {
                             direction: None,
                             cwd: optional_owned_string(fields, "cwd")?,
+                            browser_url: None,
                             size: effect_cell_size(fields)?,
                             ratio: None,
                             viewport_width: None,
@@ -4316,6 +4325,11 @@ impl Mux {
                     PaneAddOptions {
                         direction: Some(required_str(fields, "direction")?),
                         cwd: optional_owned_string(fields, "cwd")?,
+                        browser_url: if fields.get("browser").and_then(Value::as_bool).unwrap_or(false) {
+                            Some(required_str(fields, "url")?.to_string())
+                        } else {
+                            None
+                        },
                         size: effect_cell_size(fields)?,
                         ratio: fields
                             .get("ratio")
@@ -4891,7 +4905,8 @@ impl Mux {
         target: PaneId,
         options: PaneAddOptions<'_>,
     ) -> anyhow::Result<CreatedTerminalEffect> {
-        let PaneAddOptions { direction, cwd, size, ratio, viewport_width } = options;
+        let PaneAddOptions { direction, cwd, browser_url, size, ratio, viewport_width } = options;
+        let browser_split = browser_url.is_some();
         let split_direction = direction
             .map(|direction| {
                 Ok(match direction {
@@ -4908,17 +4923,21 @@ impl Mux {
             .with_context(|| format!("pane {target} has no workspace"))?;
         let cwd = cwd.or_else(|| self.pane_cwd(target));
         let pane_public_id = PanePublicId::random()?;
-        let reservation = self.effect_terminal_reservation(
-            intent,
-            &workspace_key,
-            None,
-            cwd.as_deref(),
-            None,
-            size,
-            None,
-        )?;
-        let surface =
-            self.spawn_surface_in_workspace_reserved(&workspace_key, cwd, size, None, reservation)?;
+        let surface = if let Some(url) = browser_url {
+            let identity = self.effect_browser_reservation(intent)?;
+            self.spawn_browser_surface_with_resource_identity(url, size, None, Some(identity))?
+        } else {
+            let reservation = self.effect_terminal_reservation(
+                intent,
+                &workspace_key,
+                None,
+                cwd.as_deref(),
+                None,
+                size,
+                None,
+            )?;
+            self.spawn_surface_in_workspace_reserved(&workspace_key, cwd, size, None, reservation)?
+        };
         #[cfg(test)]
         if viewport_width.is_some()
             && let Some(hook) = self.viewport_split_after_spawn.lock().unwrap().clone()
@@ -5051,6 +5070,10 @@ impl Mux {
         })();
         let (delta, changed_screen, created) = match attached {
             Ok(attached) => attached,
+            Err(error) if browser_split => {
+                let _ = self.close_surface_for_resource_effect(surface.id);
+                return Err(error);
+            }
             Err(error) => {
                 self.fail_hosted_terminal_attachment(
                     &surface,
@@ -5180,6 +5203,24 @@ fn topology_effect_creates_terminal(operation: ResourceOperation) -> bool {
     created_identity_kind(operation) == Some(CreatedIdentityKind::Terminal)
 }
 
+fn created_identity_kind_for_intent(
+    operation: ResourceOperation,
+    intent: &Value,
+) -> Option<CreatedIdentityKind> {
+    if operation == ResourceOperation::PaneSplit
+        && intent
+            .get("fields")
+            .and_then(Value::as_object)
+            .and_then(|fields| fields.get("browser"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+    {
+        Some(CreatedIdentityKind::Browser)
+    } else {
+        created_identity_kind(operation)
+    }
+}
+
 fn is_resource_close_operation(operation: ResourceOperation) -> bool {
     matches!(
         operation,
@@ -5300,6 +5341,16 @@ fn validate_effect_fields(
                             .contains(&width),
                     "invalid viewport pane width"
                 );
+            }
+            let browser = match fields.get("browser") {
+                Some(value) => value.as_bool().context("field \"browser\" must be a boolean")?,
+                None => false,
+            };
+            if browser {
+                anyhow::ensure!(!required_str(fields, "url")?.is_empty(), "browser URL is empty");
+                anyhow::ensure!(!fields.contains_key("cwd"), "browser pane split cannot set cwd");
+            } else {
+                anyhow::ensure!(!fields.contains_key("url"), "browser URL requires browser split");
             }
             let _ = effect_cell_size(fields)?;
         }

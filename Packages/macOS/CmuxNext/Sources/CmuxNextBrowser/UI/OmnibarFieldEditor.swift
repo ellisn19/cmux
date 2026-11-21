@@ -134,8 +134,28 @@ final class OmnibarFieldEditor: NSTextView {
         super.pasteAsPlainText(sender)
     }
 
+    /// The whole text selected (focus selects the whole address; Cmd-A) shows the line from its start, where the
+    /// resting field draws it, as Chrome's omnibox does; a drag's selection keeps the scroll the drag left. AppKit
+    /// scrolled a selection wider than the field to its own pick of visible, which moved a long address 5 pt left on
+    /// focus and back on blur (Lawrence 2026-11-20).
+    override func scrollRangeToVisible(_ range: NSRange) {
+        guard showsLineStart(for: range) else { return super.scrollRangeToVisible(range) }
+        scrollToLineStart()
+    }
+
+    private func showsLineStart(for range: NSRange) -> Bool {
+        range.location == 0 && range.length > 0 && range.length == (string as NSString).length
+    }
+
+    private func scrollToLineStart() {
+        guard let clip = superview as? NSClipView, clip.bounds.origin.x != 0 else { return }
+        clip.scroll(to: NSPoint(x: 0, y: clip.bounds.origin.y))
+        clip.superview?.needsDisplay = true
+    }
+
     override func setSelectedRanges(_ ranges: [NSValue], affinity: NSSelectionAffinity, stillSelecting: Bool) {
         super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelecting)
+        if !stillSelecting, ranges.count == 1, showsLineStart(for: ranges[0].rangeValue) { scrollToLineStart() }
         // Drags report once, when they end; edits report through didChangeText.
         guard !stillSelecting, !isChangingText else { return }
         sink?.fieldEditorDidChange(kind: nil)
@@ -244,6 +264,10 @@ final class OmnibarFieldEditor: NSTextView {
 /// from 12 to 18 pt).
 final class AddressFieldCell: EditorAlignedTextFieldCell {
     let editor = OmnibarFieldEditor()
+
+    /// A long address fades out before the star and the toolbar buttons, as a tab's title fades before its edge
+    /// (`MarqueeLabel.fadeWidth`).
+    override var overflowFadeWidth: CGFloat { Metrics.space6 }
 
     override func fieldEditor(for controlView: NSView) -> NSTextView? { editor }
 }

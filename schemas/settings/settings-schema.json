@@ -109,7 +109,7 @@
         ],
         "id" : "general",
         "lead" : [
-
+          "textSize"
         ],
         "symbol" : "gearshape",
         "title" : {
@@ -35675,7 +35675,7 @@
       ],
       "placeholder" : null,
       "range" : {
-        "max" : 16,
+        "max" : 20,
         "min" : 10,
         "placeholder" : 12,
         "step" : 1,

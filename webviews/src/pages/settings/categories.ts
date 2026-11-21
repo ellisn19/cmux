@@ -27,6 +27,7 @@ export const CATEGORY_CARDS = [
   "devices",
   "chiefPet",
   "density",
+  "textSize",
   "importSuggestions",
   "channels",
   "appUpdate",

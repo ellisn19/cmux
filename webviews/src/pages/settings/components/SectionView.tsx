@@ -25,6 +25,7 @@ import { ImportSuggestionsCard } from "./ImportSuggestionsCard";
 import { AdvancedInfo, BACKDROP_ROWS, Backdrops, TerminalInfo, useBackdropsShown } from "./HostCards";
 import { DENSITY_CARD_ROWS } from "../density";
 import { DensityCard } from "./DensityCard";
+import { TextSizeCard } from "./TextSizeCard";
 import { BrowserProfiles, MACHINE_COLORS_KEY, MachinesSection, SpacesSection } from "./HostSections";
 import { PersonalizationCard } from "./PersonalizationCard";
 import { PERSONALIZATION_KEYS, personalizationPart, type PartID } from "../personalizationParts";
@@ -82,6 +83,7 @@ const CARDS: Record<
   devices: () => <DevicesCard />,
   chiefPet: (focus) => <ChiefPetCard focus={focus} />,
   density: (focus) => <DensityCard focus={focus} />,
+  textSize: () => <TextSizeCard />,
   importSuggestions: () => <ImportSuggestionsCard />,
   channels: (focus) => <ChannelsCard focus={focus} />,
   appUpdate: () => <AppUpdateCard />,

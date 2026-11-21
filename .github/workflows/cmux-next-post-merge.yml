@@ -127,8 +127,23 @@ jobs:
     permissions:
       contents: read
 
+  # The feat-cmux-next web checks (ci-web.yml), once a batch instead of cmux-next-web.yml's coalesced push runs.
+  # Its jobs keep the `web / ...` names a pull request's ci.yml run gives them, which base_red_excuse.py's
+  # BASE_WORKFLOW_FOR and next_batch.py read this workflow's batch runs for.
+  web:
+    needs: plan
+    if: contains(needs.plan.outputs.suites, ' web ')
+    uses: ./.github/workflows/ci-web.yml
+    with:
+      sha: ${{ needs.plan.outputs.sha }}
+      only: ${{ needs.plan.outputs.only }}
+    # actions: read: the base's webview test history and duration manifest are artifacts (ci-web.yml).
+    permissions:
+      contents: read
+      actions: read
+
   judge:
-    needs: [plan, drill]
+    needs: [plan, drill, web]
     if: ${{ !cancelled() && needs.plan.result == 'success' }}
     runs-on: ${{ github.repository_owner != 'manaflow-ai' && 'ubuntu-24.04' || 'cmux-linux' }}
     timeout-minutes: 15

@@ -5,6 +5,21 @@
       "workflow": "post-merge-drill.yml",
       "paths": [".github/post-merge-drill-red"],
       "jobs": {"drill": "drill"}
+    },
+    "web": {
+      "workflow": "ci-web.yml",
+      "paths": [],
+      "jobs": {
+        "web-typecheck": "web-typecheck",
+        "web-production-build": "web-production-build",
+        "web-tests": "Web tests",
+        "agent-pane-real-acpmux": "Agent pane on real acpmux",
+        "web-instant-navigation": "web-instant-navigation",
+        "react-apps-check-shard": "react-apps-check",
+        "react-doctor": "react-doctor",
+        "diff-sidecar-check": "diff-sidecar-check",
+        "web-db-migrations": "web-db-migrations"
+      }
     }
   }
 }

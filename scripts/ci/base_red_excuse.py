@@ -1128,7 +1128,7 @@ OTHER_REPO_ROLLUPS = {
     "manaflow-ai/cmuxterm-hq": {"run": (("skills-tests.yml", "tests"),), "routed": ()},
 }
 # A called workflow's base verdict, from the workflow that calls it on base pushes (2026-11-07). ci.yml runs on pull
-# requests only; on feat-cmux-next the same ci-web.yml runs from cmux-next-web.yml's `web` job, under the same
+# requests only; on feat-cmux-next the same ci-web.yml ran from cmux-next-web.yml's `web` job, under the same
 # 'web / ...' check names. ci.yml's newest feat-cmux-next run was a 2026-10-06 dispatch, so every web shard red on a
 # PR was judged against that month-old pass and refused as having no verdict at or after its merge-base (cmux#37667's
 # 'web / Web tests (1/4)', red on the base in cmux-next web run 42358745538). Keyed by (the base branch, the PR run's
@@ -1136,8 +1136,13 @@ OTHER_REPO_ROLLUPS = {
 # of the same id calls the same reusable workflow on pushes to that base branch, and only that one: a PR into `main`
 # never reads cmux-next web, whose runs on `main` (a dispatch) are no base evidence. tests/test_base_red_excuse.py
 # checks each entry against the workflows. Its verdict is read only when the PR run's own workflow has none at or
-# after the merge-base.
-BASE_WORKFLOW_FOR = {("feat-cmux-next", "ci.yml", "web"): "cmux-next-web.yml"}
+# after the merge-base. Since 2026-11-21 the base's ci-web.yml runs in the post-merge batch tier
+# (cmux-next-post-merge.yml, suite `web`, the same 'web / ...' names), not on each push of cmux-next-web.yml; its
+# probe runs test one job of an older commit and are never base evidence (list_base_runs drops them).
+BASE_WORKFLOW_FOR = {("feat-cmux-next", "ci.yml", "web"): "cmux-next-post-merge.yml"}
+# A post-merge batch probe run (cmux-next-post-merge.yml's run-name 'probe <suite> <job> at <sha>') tests one job of
+# an older commit while its head_sha is the tip it was dispatched from: never a base verdict for that tip.
+POST_MERGE_PROBE_TITLE = "probe "
 # A workflow no base push or schedule runs gets its base verdict from a dispatch on the base tip (2026-11-07).
 # nightly-next-cua-signed-host.yml runs on pull requests that touch it and on a schedule, but a schedule fires only
 # from the default branch, where the file was not yet registered, so feat-cmux-next never had a run of it: every red
@@ -7371,8 +7376,14 @@ def list_base_runs(repo: str, base: str, workflow, github, base_runs: dict) -> N
     base_runs[workflow] = sorted(
         (run for run in (listed.get("workflow_runs") if isinstance(listed, dict) else None) or []
          if isinstance(run, dict) and run.get("event") not in ("pull_request", "pull_request_target")
-         and run.get("conclusion") != "skipped"),
+         and run.get("conclusion") != "skipped" and not post_merge_probe(run)),
         key=lambda run: run.get("created_at") or "", reverse=True)
+
+
+def post_merge_probe(run: dict) -> bool:
+    """Whether RUN is a post-merge batch probe (POST_MERGE_PROBE_TITLE), which is no base verdict."""
+    return (str(run.get("path") or "").startswith(".github/workflows/cmux-next-post-merge.yml")
+            and (run.get("display_title") or "").startswith(POST_MERGE_PROBE_TITLE))
 
 
 def base_caller(repo: str, base: str, run: dict, name: str) -> str | None:
@@ -7736,7 +7747,7 @@ def gallery_crash_verdict(repo: str, base: str, name: str, job: dict, head_log: 
 # puts it, so even a head shard's name matches a base job that ran other files. test_reds.classify_web_window judges
 # such a red the way next-autoland's web_red (cmuxterm-hq) does: the tests a replay charged to the change (its head
 # re-run's verdict), with their errors from the head shard N of the same run, or a head shard's own failing tests,
-# against the red shards of the base's newest webview runs (BASE_WORKFLOW_FOR's push caller, cmux-next-web.yml): a
+# against the red shards of the base's newest webview runs (BASE_WORKFLOW_FOR's caller, cmux-next-post-merge.yml): a
 # test is the base's when one of those runs fails it with the same error. The window is the base-red window: at most
 # BASE_WINDOW runs that gave every shard a verdict, within BASE_WINDOW_HOURS of the newest, back to the first all-green
 # run (every test passed there, so an older red never counts), reading at most WEB_BASE_JOB_READS job lists.

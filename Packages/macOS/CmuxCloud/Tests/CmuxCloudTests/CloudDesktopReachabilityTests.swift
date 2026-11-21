@@ -71,7 +71,10 @@ struct CloudDesktopReachabilityTests {
 
     @Test("A proxy that withholds CONNECT headers returns at a 200ms deadline (#16379)")
     func withheldHeadersReturnPromptlyAtDeadline() async throws {
-        let proxy = try FakeProxy { _ in }
+        // Read the CONNECT request, as the issue's reproduction does, then withhold the reply.
+        let proxy = try FakeProxy { connection in
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 8192) { _, _, _, _ in }
+        }
         defer { proxy.stop() }
         let port = try await proxy.start()
         let started = ContinuousClock.now

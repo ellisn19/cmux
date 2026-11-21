@@ -39,7 +39,8 @@ extension HomeHostView {
             openAgents: { [weak services] in services?.onboarding.show(step: .agents) },
             historySources: { [muxHome = HomeBrainHost.muxHome(tag: services.environment.tag).path] in
                 MemorySource.offerTitle(await ChiefMemoryImportHandlers.detectForOffer(muxHome: muxHome)) != nil },
-            importHistory: { [weak services] in services.map { TopPages.show(.page(.importHistory), services: $0) != nil } ?? false }, agentTools: services.onboarding.agentTools)
+            importHistory: { [weak services] in services.map { TopPages.show(.page(.importHistory), services: $0) != nil } ?? false }, agentTools: services.onboarding.agentTools,
+            look: SetupCardLook(design: .shared) { [weak services] in services?.settings })
         guard setupCard == nil, let card = SetupCardHost(setup: services.onboarding.setup, agents: services.onboarding.signInHarnesses,
                                                          environment: environment, overlayProcess: services.overlayProcess,
                                                          form: form) else { return }

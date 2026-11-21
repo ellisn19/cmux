@@ -5,6 +5,18 @@
       "workflow": "post-merge-drill.yml",
       "paths": [".github/post-merge-drill-red"],
       "jobs": {"drill": "drill"}
+    },
+    "tip-test-compile": {
+      "workflow": "cmux-next-tip-test-compile.yml",
+      "paths": [
+        "Packages/**",
+        "vendor/**",
+        "scripts/ci/compile_test_plan.py",
+        "scripts/ci/package-test-lane.sh",
+        "scripts/ci/tip-test-compile.sh",
+        ".github/workflows/cmux-next-tip-test-compile.yml"
+      ],
+      "jobs": {"compile": "tip test-compile (fleet, background)"}
     }
   }
 }

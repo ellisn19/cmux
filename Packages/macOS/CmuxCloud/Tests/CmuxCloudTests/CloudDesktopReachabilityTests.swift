@@ -69,6 +69,21 @@ struct CloudDesktopReachabilityTests {
         #expect(ContinuousClock.now - started < .seconds(10), "the deadline must cancel the stalled request")
     }
 
+    @Test("A proxy that withholds CONNECT headers returns at a 200ms deadline (#16379)")
+    func withheldHeadersReturnPromptlyAtDeadline() async throws {
+        let proxy = try FakeProxy { _ in }
+        defer { proxy.stop() }
+        let port = try await proxy.start()
+        let started = ContinuousClock.now
+        let result = try await CloudBrowserRouting.desktopReachability(
+            endpoint: endpoint(port), address: "10.0.0.7", port: 6901, timeout: .milliseconds(200)
+        )
+        let elapsed = ContinuousClock.now - started
+        #expect(result == .unknown)
+        // The issue measured 2.01s for a 200ms deadline on main. One second leaves room for a loaded runner.
+        #expect(elapsed < .seconds(1), "the probe returned after \(elapsed) for a 200ms deadline")
+    }
+
     @Test("A refused upstream is unreachable")
     func refusedUpstreamIsUnreachable() async throws {
         let proxy = try FakeProxy { connection in

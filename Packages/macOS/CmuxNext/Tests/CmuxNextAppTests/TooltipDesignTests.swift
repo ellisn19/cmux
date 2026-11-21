@@ -18,6 +18,17 @@ import Testing
         content.frame = NSRect(origin: .zero, size: size)
         content.layoutSubtreeIfNeeded()
         let keycap = try #require(content.keycap, "the shortcut has no keycap")
+        do {
+            let t = content.text
+            t.preferredMaxLayoutWidth = 280
+            let at280 = t.fittingSize
+            t.preferredMaxLayoutWidth = 0
+            print("TOOLTIP-DIAG size=\(size) text.frame=\(content.text.frame) keycap=\(keycap.frame) natural=\(t.naturalSize) intrinsic=\(t.intrinsicContentSize) at280=\(at280) scale=\(Self.scale) font=\(String(describing: t.font))")
+            content.frame = NSRect(origin: .zero, size: size)
+            content.needsLayout = true
+            content.layoutSubtreeIfNeeded()
+            print("TOOLTIP-DIAG after text.frame=\(content.text.frame) keycap=\(keycap.frame)")
+        }
         #expect(keycap.label.stringValue == "⌃⇧M")
         #expect(keycap.style == .linearKbd, "the tooltip's keycap is not the dialogs' Linear keycap")
         let inset = TooltipMetrics.keycapInset * Self.scale

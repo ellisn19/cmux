@@ -349,6 +349,12 @@ package_args() {
       swift_test_args+=(-Xswiftc -warnings-as-errors)
       ;;
   esac
+  # FORK-ONLY DEBUG (#16379): run just the reachability suite in CmuxCloud.
+  # Test pass only; `swift build` does not accept --filter.
+  test_only_args=()
+  if [ "$pkg" = CmuxCloud ]; then
+    test_only_args=(--filter CloudDesktopReachabilityTests)
+  fi
 }
 
 # One package's build, for prebuild_packages. It never fails the lane: a
@@ -435,7 +441,7 @@ run_package_tests() {
       --stall-seconds "${CMUX_SWIFT_TEST_STALL_SECONDS:-180}" \
       --timeout-seconds "${CMUX_SWIFT_PACKAGE_TEST_TIMEOUT_SECONDS:-900}" \
       --sample-seconds 5 --label "$pkg" --log "$log" \
-      -- swift test "${swift_test_args[@]}" < /dev/null || test_status=$?
+      -- swift test "${swift_test_args[@]}" ${test_only_args[@]+"${test_only_args[@]}"} < /dev/null || test_status=$?
   }
   has_other_error() {
     awk '

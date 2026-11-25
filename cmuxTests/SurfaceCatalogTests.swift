@@ -123,6 +123,49 @@ struct SurfaceCatalogTests {
         }
     }
 
+    @Test("A port preview with a view in another workspace is absent here, not a reconcile failure (#16066)")
+    func portPreviewWithViewElsewhereIsAbsentInAnotherWorkspace() throws {
+        // The first workspace's browser view makes the port's remoteViews
+        // non-nil. A second workspace that bound the same port as a local
+        // preview has no view of its own and must resolve as absent.
+        let machine = SurfaceMachineID.cloud("vivid-newt")
+        let catalog = SurfaceCatalog(live: live)
+        catalog.register(FakeProvider(machine: machine))
+        var port = SurfaceResource(
+            id: SurfaceResourceID(machine: machine, kind: .browser, key: "port:3000"),
+            title: ":3000", detail: nil, lifecycle: .running, agent: nil,
+            remoteWorkspace: nil, port: 3000, url: nil
+        )
+        port.remoteViews = [SurfaceRemoteView(
+            tabID: "tab-port",
+            workspace: SurfaceRemoteWorkspace(id: "workspace-a", name: "a", index: 0, focused: true)
+        )]
+        catalog.upsert(port)
+
+        let placement = SurfaceResourcePlacement(resource: port.id, remoteWorkspaceID: "workspace-b")
+        #expect(try catalog.remoteView(for: placement) == nil)
+    }
+
+    @Test("A display preview with a view in another workspace and no membership is absent here (#16066)")
+    func displayPreviewWithViewElsewhereIsAbsentInAnotherWorkspace() throws {
+        let machine = SurfaceMachineID.cloud("vivid-newt")
+        let catalog = SurfaceCatalog(live: live)
+        catalog.register(FakeProvider(machine: machine))
+        var display = SurfaceResource(
+            id: SurfaceResourceID(machine: machine, kind: .display, key: "1"),
+            title: "Display 1", detail: nil, lifecycle: .running, agent: nil,
+            remoteWorkspace: nil, port: nil, url: nil
+        )
+        display.remoteViews = [SurfaceRemoteView(
+            tabID: "tab-display",
+            workspace: SurfaceRemoteWorkspace(id: "workspace-a", name: "a", index: 0, focused: true)
+        )]
+        catalog.upsert(display)
+
+        let placement = SurfaceResourcePlacement(resource: display.id, remoteWorkspaceID: "workspace-b")
+        #expect(try catalog.remoteView(for: placement) == nil)
+    }
+
     @Test("A display placement keeps its daemon tab identity")
     func displayPlacementKeepsDaemonTabIdentity() throws {
         // A display that really is a daemon tab must resolve to that tab. The

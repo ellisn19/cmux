@@ -71,7 +71,6 @@ extension SurfaceCatalog {
         }
         if let resource = resources[placement.resource],
            placement.remoteTabID == nil,
-           resource.remoteViews == nil,
            (resource.kind == .display || resource.id.isForwardedPort) {
             // Displays and forwarded ports can be local previews in more than
             // one bound workspace. They have no daemon tab or membership row
@@ -83,7 +82,15 @@ extension SurfaceCatalog {
                let view = cloudDisplayMembershipView(for: placement.resource, workspaceID: workspaceID) {
                 return view
             }
-            return nil
+            // A view list from another workspace (a port's browser view, for
+            // example) does not make this workspace's preview a failure. Only a
+            // view in this workspace is resolved below.
+            let hasViewHere = resource.remoteViews?.contains {
+                !$0.isCloudDisplayMembershipView && $0.workspace.id == workspaceID
+            } ?? false
+            if !hasViewHere {
+                return nil
+            }
         }
         return try remoteView(
             for: placement.resource,
